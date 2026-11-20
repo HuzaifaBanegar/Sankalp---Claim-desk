@@ -1,0 +1,283 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f8fc">
+  <title>Sankalp | Claims Desk</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<main class="shell">
+
+  <!-- Header -->
+  <header class="masthead">
+    <a href="/" class="brand" aria-label="Sankalp home">
+      <div class="brand-mark">S</div>
+      <div class="brand-name">
+        <h1>Sankalp</h1>
+        <span>CLAIMS DESK</span>
+      </div>
+    </a>
+
+    <div class="header-right">
+      <div class="secure-label">
+        <span class="secure-dot"></span>
+        Secure internal workspace
+      </div>
+      <div class="header-divider"></div>
+      <div class="department">General Medicines</div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="intro">
+    <div class="intro-content">
+      <div class="intro-label">
+        <span class="intro-label-dot"></span>
+        CLAIMS SUPPORT ASSISTANT
+      </div>
+
+      <h2>
+        The answers you need.<br>
+        <span>Backed by facts.</span>
+      </h2>
+
+      <p>
+        Investigate claims, verify batch details, and assess product
+        returns with information sourced directly from company records.
+      </p>
+
+      <div class="intro-features">
+        <span><span class="feature-check">✓</span> Verified company data</span>
+        <span><span class="feature-check">✓</span> Evidence-backed answers</span>
+        <span><span class="feature-check">✓</span> Read-only access</span>
+      </div>
+    </div>
+
+    <div class="hero-decoration" aria-hidden="true">
+      <div class="hero-circle circle-one"></div>
+      <div class="hero-circle circle-two"></div>
+      <div class="hero-document">
+        <div class="document-icon">✓</div>
+        <div class="document-lines">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div class="document-tag">VERIFIED</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main question area -->
+  <section class="question-card" aria-labelledby="question-title">
+
+    <div class="section-heading">
+      <div>
+        <div class="section-eyebrow">
+          <span class="step-number">01</span>
+          ASK SANKALP
+        </div>
+        <h2 id="question-title">What can I help you with?</h2>
+        <p class="section-description" id="mode-description">
+          Choose the type of request, then fill in the details. I'll look up the relevant records.
+        </p>
+      </div>
+
+      <div class="required-note" id="required-note">
+        <span class="required-dot"></span>
+        <span id="required-note-text">Fields marked * are required</span>
+      </div>
+    </div>
+
+    <form id="ask" class="mode-chat">
+      <div class="request-type">
+        <label for="request-type">Type of request</label>
+        <select id="request-type" name="request_type">
+          <option value="general">General enquiry</option>
+          <option value="claim_status">Claim status</option>
+          <option value="raise_claim">Raise a claim</option>
+        </select>
+      </div>
+
+      <div id="panel-claim-status" class="intake-panel" hidden>
+        <p class="form-required-banner"><span>*</span> Required fields</p>
+        <div class="form-grid">
+          <label class="field field-span">
+            <span>Claim number <abbr title="required">*</abbr></span>
+            <input id="claim-no" name="claim_no" type="text" placeholder="CLM-2607-02627" autocomplete="off">
+          </label>
+        </div>
+      </div>
+
+      <div id="panel-raise-claim" class="intake-panel" hidden>
+        <p class="form-required-banner"><span>*</span> Required fields</p>
+        <div class="form-grid">
+          <label class="field">
+            <span>Stockist code <abbr title="required">*</abbr></span>
+            <input id="stockist-code" name="stockist_code" type="text" placeholder="STK0143" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Batch number <abbr title="required">*</abbr></span>
+            <input id="batch-no" name="batch_no" type="text" placeholder="K2440124" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Quantity <abbr title="required">*</abbr></span>
+            <input id="quantity" name="quantity" type="text" inputmode="decimal" placeholder="20">
+          </label>
+          <label class="field">
+            <span>Unit <abbr title="required">*</abbr></span>
+            <select id="quantity-unit" name="quantity_unit">
+              <option value="strips">strips</option>
+              <option value="packs">packs</option>
+              <option value="units">units</option>
+              <option value="bottles">bottles</option>
+              <option value="pcs">pcs</option>
+            </select>
+          </label>
+          <label class="field field-span">
+            <span>Claim type <abbr title="required">*</abbr></span>
+            <select id="claim-type" name="claim_type">
+              <option value="">Select claim type</option>
+              <option value="near expiry">Near expiry</option>
+              <option value="expired">Expired</option>
+              <option value="breakage">Breakage in transit</option>
+              <option value="short supply">Short supply</option>
+            </select>
+          </label>
+          <label class="field field-span">
+            <span>Original invoice reference <abbr title="required">*</abbr></span>
+            <input id="invoice-ref" name="invoice_ref" type="text" placeholder="INV/S02/2503/033678" autocomplete="off">
+          </label>
+          <label class="field-check field-span">
+            <input id="invoice-exception" name="invoice_exception" type="checkbox">
+            <span>Purchase-ledger verification and written Area Manager approval (instead of invoice)</span>
+          </label>
+        </div>
+      </div>
+
+      <div id="panel-general" class="intake-panel">
+        <label class="sr-only" for="q">Your question</label>
+        <div class="input-wrapper">
+          <div class="input-icon" aria-hidden="true">✳</div>
+          <textarea
+            id="q"
+            rows="3"
+            placeholder="Ask anything about batches, expiry dates or product details..."
+            aria-describedby="input-hint"
+          ></textarea>
+          <div class="input-bottom">
+            <span id="input-hint">Be as specific as possible for better results.</span>
+            <span class="input-hint-icon">↵ Enter your question</span>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" id="submit-btn">
+        <span>Find answer</span>
+        <span class="submit-arrow" aria-hidden="true">→</span>
+      </button>
+    </form>
+
+    <div class="suggestions-wrapper">
+      <span class="suggestions-label">TRY ASKING</span>
+
+      <div class="suggestions" aria-label="Example questions">
+        <button type="button" class="suggestion" data-mode="claim_status" data-claim-no="CLM-2607-02627">
+          <span class="suggestion-icon">⌕</span>
+          Status of CLM-2607-02627
+        </button>
+
+        <button type="button" class="suggestion" data-mode="general" data-question="Expiry date for batch K2300101">
+          <span class="suggestion-icon">▤</span>
+          Expiry date for batch K2300101
+        </button>
+
+        <button type="button" class="suggestion" data-mode="raise_claim" data-stockist="STK0143" data-batch="K2440124" data-quantity="689" data-unit="strips" data-claim-type="near expiry" data-invoice="INV/S02/2503/033678">
+          <span class="suggestion-icon">↗</span>
+          Start a near-expiry claim
+        </button>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- Status / Loading / Errors -->
+  <p id="status" class="status" role="status" aria-live="polite"></p>
+
+  <!-- Results -->
+  <section id="out" class="results" hidden>
+
+    <article class="answer-card">
+      <div class="card-title">
+        <div class="answer-icon" aria-hidden="true">✓</div>
+
+        <div class="answer-heading">
+          <p class="kicker">SANKALP RESPONSE</p>
+          <h2>Claim assessment</h2>
+        </div>
+
+        <div class="source-indicator">
+          <span></span>
+          Data verified
+        </div>
+      </div>
+
+      <div id="answer" class="answer-copy"></div>
+    </article>
+
+    <section
+      id="evidence-section"
+      class="evidence-section"
+      hidden
+      aria-labelledby="evidence-title"
+    >
+      <div class="evidence-heading">
+        <div>
+          <div class="section-eyebrow">
+            <span class="step-number">02</span>
+            SUPPORTING INFORMATION
+          </div>
+          <h2 id="evidence-title">Evidence & source records</h2>
+          <p class="evidence-subtitle">
+            The company records used to generate this response.
+          </p>
+        </div>
+
+        <div class="read-only-label">
+          <span>▤</span> READ ONLY
+        </div>
+      </div>
+
+      <div id="evidence" class="evidence-grid"></div>
+    </section>
+
+    <details id="debug-panel" class="debug-panel" hidden>
+      <summary>Debug trace <span>Development only</span></summary>
+      <ol id="debug-trace"></ol>
+    </details>
+
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-brand">
+      <span class="footer-mark">S</span>
+      <span>Sankalp Claims Desk</span>
+    </div>
+
+    <p>Internal use only · General Medicines</p>
+
+    <p class="footer-note">
+      Answers are based on available company records.
+    </p>
+  </footer>
+
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>
