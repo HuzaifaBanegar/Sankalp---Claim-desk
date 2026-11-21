@@ -41,11 +41,43 @@ def _claims() -> list[dict]:
     return json.loads(claims.to_json(orient="records", date_format="iso"))
 
 
-def claim_records(claim_no: str) -> dict:
-    """Find one or more cleaned claim records by exact normalized claim number."""
-    normalized = claim_no.strip().upper().replace(" ", "-")
-    rows = [row for row in _claims() if row["claim_no"] == normalized]
-    return {"found": bool(rows), "claim_no": normalized, "records": rows}
+def claim_records(
+    claim_no: str | None = None,
+    batch_no: str | None = None,
+    stockist_code: str | None = None,
+) -> dict:
+    """Find claims by claim number or by the stockist/batch pair used for duplicate checks."""
+    rows = _claims()
+    query: dict[str, str] = {}
+    if claim_no:
+        query["claim_no"] = claim_no.strip().upper().replace(" ", "-")
+    if batch_no:
+        query["batch_no"] = batch_no.strip().upper()
+    if stockist_code:
+        query["stockist_code"] = stockist_code.strip().upper()
+    rows = [row for row in rows if all(str(row.get(key, "")).strip().upper() == value for key, value in query.items())]
+    return {"found": bool(rows), **query, "records": rows}
+
+
+@lru_cache(maxsize=1)
+def _sales() -> list[dict]:
+    """Return cleaned primary-sales rows in JSON-safe form."""
+    sales = load_all()["sales"].drop(columns="src_row")
+    return json.loads(sales.to_json(orient="records", date_format="iso"))
+
+
+def primary_sale_records(invoice_ref: str, batch_no: str, stockist_code: str) -> dict:
+    """Match invoice, batch, and stockist against cleaned primary-sales rows."""
+    invoice = invoice_ref.strip().upper()
+    batch = batch_no.strip().upper()
+    stockist = stockist_code.strip().upper()
+    rows = [
+        row for row in _sales()
+        if row["invoice_no"].strip().upper() == invoice
+        and str(row.get("batch_no") or "").strip().upper() == batch
+        and row["stockist_code"].strip().upper() == stockist
+    ]
+    return {"found": bool(rows), "invoice_ref": invoice, "batch_no": batch, "stockist_code": stockist, "records": rows}
 
 
 @tool
@@ -57,9 +89,15 @@ def lookup_batch(batch_no: str) -> dict:
 
 
 @tool
-def search_claims(claim_no: str) -> dict:
-    """Find a claim by its claim number. Use this for a claim status or credit-note question."""
-    return claim_records(claim_no)
+def search_claims(claim_no: str = "", batch_no: str = "", stockist_code: str = "") -> dict:
+    """Search by claim number for status, or by batch_no plus stockist_code for earlier claim history."""
+    return claim_records(claim_no or None, batch_no or None, stockist_code or None)
 
 
-TOOLS = [lookup_batch, search_claims]
+@tool
+def match_primary_sale(invoice_ref: str, batch_no: str, stockist_code: str) -> dict:
+    """Match invoice, batch, and stockist to validate the claimed quantity against sales."""
+    return primary_sale_records(invoice_ref, batch_no, stockist_code)
+
+
+TOOLS = [lookup_batch, search_claims, match_primary_sale]

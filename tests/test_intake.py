@@ -18,10 +18,16 @@ def test_claim_triage_lists_the_missing_fields():
 
 
 def test_complete_claim_triage_has_all_required_fields():
-    text = "Near expiry claim: STK0143, K2440124, 689 strips, invoice INV/S02/2503/033678."
+    text = "Near expiry claim: STK0143, K2440124, 689 strips, claim date 2026-11-21, invoice INV/S02/2503/033678."
     intake = inspect_request(text)
     assert intake["intent"] == "claim_triage"
     assert intake["ready"] is True
+    assert intake["entities"]["claim_date"] == "2026-11-21"
+
+
+def test_claim_triage_requires_a_claim_date_for_policy_window_check():
+    intake = inspect_request("Near expiry claim: STK0143, K2440124, 689 strips, invoice INV/S02/2503/033678.")
+    assert "claim date (YYYY-MM-DD)" in intake["missing"]
 
 
 def test_claim_search_returns_tool_backed_facts():

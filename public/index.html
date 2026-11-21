@@ -129,6 +129,10 @@
             <input id="quantity" name="quantity" type="text" inputmode="decimal" placeholder="20">
           </label>
           <label class="field">
+            <span>Claim date <abbr title="required">*</abbr></span>
+            <input id="claim-date" name="claim_date" type="date">
+          </label>
+          <label class="field">
             <span>Unit <abbr title="required">*</abbr></span>
             <select id="quantity-unit" name="quantity_unit">
               <option value="strips">strips</option>
@@ -253,6 +257,17 @@
       </div>
 
       <div id="evidence" class="evidence-grid"></div>
+    </section>
+
+    <section id="rules-section" class="rules-section" hidden aria-labelledby="rules-title">
+      <div class="evidence-heading">
+        <div>
+          <div class="section-eyebrow"><span class="step-number">03</span> POLICY CHECKS</div>
+          <h2 id="rules-title">Rules applied</h2>
+          <p class="evidence-subtitle">Plain Python checks. “Needs evidence” means the data to decide this rule was unavailable.</p>
+        </div>
+      </div>
+      <div id="rules-list" class="rules-list"></div>
     </section>
 
     <details id="debug-panel" class="debug-panel" hidden>

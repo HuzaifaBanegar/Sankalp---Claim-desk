@@ -12,6 +12,7 @@ STOCKIST_CODE = re.compile(r"\bSTK[-\s]?(\d{4})\b", re.IGNORECASE)
 BATCH_NUMBER = re.compile(r"\b([A-Z]\d{6,8})\b", re.IGNORECASE)
 INVOICE_REFERENCE = re.compile(r"\bINV(?:/[A-Z0-9]+){3,}\b", re.IGNORECASE)
 QUANTITY = re.compile(r"\b(\d+(?:\.\d+)?)\s*(?:packs?|strips?|units?|bottles?|pcs?)\b", re.IGNORECASE)
+CLAIM_DATE = re.compile(r"\bclaim date\s*[:=]?\s*(\d{4}-\d{2}-\d{2})\b", re.IGNORECASE)
 
 CLAIM_TYPES = {
     "near expiry": "Near expiry",
@@ -35,6 +36,7 @@ def inspect_request(text: str) -> dict[str, Any]:
     batch_no = _match(BATCH_NUMBER, text, lambda m: m.group(1).upper())
     invoice_ref = _match(INVOICE_REFERENCE, text, lambda m: m.group(0).upper())
     quantity = _match(QUANTITY, text, lambda m: m.group(1))
+    claim_date = _match(CLAIM_DATE, text, lambda m: m.group(1))
     claim_type = next((value for phrase, value in CLAIM_TYPES.items() if phrase in normalized.lower()), None)
     exception = "ledger" in normalized.lower() and "written" in normalized.lower() and "area manager" in normalized.lower()
 
@@ -45,6 +47,7 @@ def inspect_request(text: str) -> dict[str, Any]:
         "invoice_ref": invoice_ref,
         "qty": quantity,
         "claim_type": claim_type,
+        "claim_date": claim_date,
         "invoice_exception_documented": exception,
     }
     if claim_no:
@@ -57,6 +60,7 @@ def inspect_request(text: str) -> dict[str, Any]:
             "batch number": batch_no,
             "quantity with unit (for example, 20 strips)": quantity,
             "claim type": claim_type,
+            "claim date (YYYY-MM-DD)": claim_date,
         }.items() if not value]
         if not invoice_ref and not exception:
             missing.append("original invoice reference, or documented purchase-ledger verification and written Area Manager approval")

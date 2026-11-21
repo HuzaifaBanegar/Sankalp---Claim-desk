@@ -9,12 +9,15 @@ const output = document.getElementById("out");
 const evidenceSection = document.getElementById("evidence-section");
 const debugPanel = document.getElementById("debug-panel");
 const debugTrace = document.getElementById("debug-trace");
+const rulesSection = document.getElementById("rules-section");
+const rulesList = document.getElementById("rules-list");
 const modeDescription = document.getElementById("mode-description");
 const requiredNoteText = document.getElementById("required-note-text");
 const claimNoInput = document.getElementById("claim-no");
 const stockistInput = document.getElementById("stockist-code");
 const batchInput = document.getElementById("batch-no");
 const quantityInput = document.getElementById("quantity");
+const claimDateInput = document.getElementById("claim-date");
 const quantityUnit = document.getElementById("quantity-unit");
 const claimType = document.getElementById("claim-type");
 const invoiceInput = document.getElementById("invoice-ref");
@@ -116,10 +119,28 @@ function renderDebugTrace(trace) {
   debugPanel.hidden = false;
 }
 
+function renderRules(outcomes) {
+  rulesSection.hidden = !outcomes || outcomes.length === 0;
+  if (rulesSection.hidden) return;
+  rulesList.innerHTML = outcomes.map((outcome) => {
+    const status = outcome.passed === true ? "Passed" : outcome.passed === false ? "Failed" : "Needs evidence";
+    const style = outcome.passed === true ? "passed" : outcome.passed === false ? "failed" : "unknown";
+    return `<article class="rule-row"><span class="rule-indicator ${style}">${status}</span><div><h3>${escapeHtml(outcome.rule_id.replaceAll("_", " "))}</h3><p>${escapeHtml(outcome.reason)}</p></div></article>`;
+  }).join("");
+}
+
 function syncInvoiceRequirement() {
   const invoiceRequired = !invoiceException.checked;
   invoiceInput.required = requestType.value === "raise_claim" && invoiceRequired;
   invoiceField.hidden = !invoiceRequired;
+}
+
+function localToday() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function setMode(mode) {
@@ -139,6 +160,8 @@ function setMode(mode) {
   stockistInput.required = claimForm;
   batchInput.required = claimForm;
   quantityInput.required = claimForm;
+  claimDateInput.required = claimForm;
+  if (claimForm && !claimDateInput.value) claimDateInput.value = localToday();
   claimType.required = claimForm;
   syncInvoiceRequirement();
 }
@@ -151,6 +174,7 @@ function buildQuestion() {
   if (mode === "raise_claim") {
     const parts = [
       `${claimType.value} claim: ${stockistInput.value.trim()}, ${batchInput.value.trim()}, ${quantityInput.value.trim()} ${quantityUnit.value}`,
+      `claim date ${claimDateInput.value}`,
     ];
     if (!invoiceException.checked) {
       parts.push(`invoice ${invoiceInput.value.trim()}`);
@@ -213,6 +237,7 @@ form.addEventListener("submit", async (e) => {
     document.getElementById("answer").innerHTML = formatAnswer(data.answer);
     renderEvidence(data.evidence || []);
     renderDebugTrace(data.debug_trace || []);
+    renderRules(data.rule_outcomes || []);
     output.hidden = false;
     status.textContent = data.model_calls ? `Completed using ${data.model_calls} model call${data.model_calls === 1 ? "" : "s"}.` : "More information is needed before a claim can be checked.";
   } catch (err) {

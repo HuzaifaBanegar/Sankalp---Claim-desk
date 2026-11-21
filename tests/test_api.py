@@ -54,3 +54,23 @@ def test_incomplete_claim_is_stopped_before_model_call():
     assert [event["event"] for event in body["debug_trace"]] == [
         "intake_checked", "request_blocked", "intake_routed",
     ]
+
+
+def test_complete_claim_runs_tools_rules_then_composes_answer(monkeypatch):
+    class FakeAnswerModel:
+        def invoke(self, messages):
+            return AIMessage(content="The claim details were checked against the available records and policy rules.")
+
+    monkeypatch.setattr(g, "get_llm", lambda: FakeAnswerModel())
+    response = TestClient(app).post("/api/ask", json={
+        "question": "Near expiry claim: STK0143, K2440124, 689 strips, claim date 2026-11-21, invoice INV/S02/2503/033678."
+    })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "batch_exists_in_master" in {item["rule_id"] for item in body["rule_outcomes"]}
+    assert "claim_within_policy_window" in {item["rule_id"] for item in body["rule_outcomes"]}
+    assert [event["event"] for event in body["debug_trace"] if event["event"] in {"rules_applied", "answer_composed"}] == [
+        "rules_applied", "answer_composed",
+    ]
+    assert any('"batch_no": "K2440124"' in item for item in body["evidence"])

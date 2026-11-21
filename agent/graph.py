@@ -14,7 +14,18 @@ from langgraph.graph.message import add_messages
 
 from agent.llm import get_llm
 from agent.intake import inspect_request, missing_fields_message
-from agent.tools import TOOLS
+from agent.rules import (
+    batch_exists_in_master,
+    claim_within_policy_window,
+    credit_note_sla,
+    ignore_email_override_instructions,
+    invoice_reference_or_exception,
+    no_duplicate_active_claim,
+    quantity_not_above_invoiced,
+    required_fields_present,
+    verbal_approval_not_sufficient,
+)
+from agent.tools import TOOLS, match_primary_sale, lookup_batch, search_claims
 
 # Stop after four model turns so a tool-calling loop cannot run forever.
 MAX_TRIPS = 4
@@ -45,6 +56,10 @@ class State(TypedDict):
     intake: dict
     # Append-only events for debugging one graph request.
     debug_trace: Annotated[list[dict], add]
+    # Tool facts and deterministic policy outcomes for a claim request.
+    facts: dict
+    evidence: Annotated[list[str], add]
+    rule_outcomes: list[dict]
 
 
 def _trace(state: State, event: str, offset: int = 0, **details) -> dict:
@@ -79,7 +94,120 @@ def validate_input(state: State) -> dict:
 
 def route_intake(state: State) -> str:
     """End immediately when required claim fields are missing."""
-    return "model" if state["intake"]["ready"] else END
+    if not state["intake"]["ready"]:
+        return END
+    if state["intake"]["intent"] in {"claim_triage", "claim_status"}:
+        return "gather_facts"
+    return "model"
+
+
+def gather_claim_facts(state: State) -> dict:
+    """Call the correct data tools from extracted fields, without model-selected identifiers."""
+    intake = state["intake"]
+    entities = intake["entities"]
+    facts = {}
+    events = []
+
+    def collect(tool, args: dict, key: str) -> None:
+        result = tool.invoke(args)
+        facts[key] = result
+        events.append(_trace(
+            state,
+            "tool_completed",
+            offset=len(events),
+            tool=tool.name,
+            arguments=args,
+            found=result.get("found"),
+            record_count=len(result.get("records", [])) if isinstance(result.get("records"), list) else None,
+        ))
+    if intake["intent"] == "claim_status":
+        collect(search_claims, {"claim_no": entities["claim_no"]}, "claim")
+    else:
+        collect(lookup_batch, {"batch_no": entities["batch_no"]}, "batch")
+        collect(match_primary_sale, {
+            "invoice_ref": entities["invoice_ref"],
+            "batch_no": entities["batch_no"],
+            "stockist_code": entities["stockist_code"],
+        }, "sale")
+        collect(search_claims, {
+            "batch_no": entities["batch_no"],
+            "stockist_code": entities["stockist_code"],
+        }, "claim_history")
+
+    evidence = [json.dumps({"tool": key, **value}, default=str) for key, value in facts.items()]
+    return {"facts": facts, "evidence": evidence, "debug_trace": events}
+
+
+def apply_claim_rules(state: State) -> dict:
+    """Run plain Python policy checks using intake fields and gathered tool results."""
+    intake = state["intake"]
+    entities = intake["entities"]
+    facts = state.get("facts", {})
+    outcomes = [ignore_email_override_instructions()]
+
+    if intake["intent"] == "claim_triage":
+        batch = facts.get("batch")
+        sale = facts.get("sale")
+        history = facts.get("claim_history")
+        outcomes.extend([
+            required_fields_present(entities),
+            batch_exists_in_master(batch),
+            claim_within_policy_window(
+                entities.get("claim_type"),
+                entities.get("claim_date"),
+                (batch or {}).get("expiry_date") if batch and batch.get("found") else None,
+            ),
+            quantity_not_above_invoiced(
+                entities.get("qty"),
+                ({
+                    "invoiced_qty": sum(float(row.get("invoiced_qty") or 0) for row in sale["records"]),
+                    "free_qty": sum(float(row.get("free_qty") or 0) for row in sale["records"]),
+                } if sale and sale.get("found") else None),
+            ),
+            no_duplicate_active_claim(
+                history.get("records") if history is not None and history.get("found") else ([] if history else None),
+                entities["stockist_code"],
+                entities["batch_no"],
+            ),
+            invoice_reference_or_exception(
+                entities.get("invoice_ref"),
+                ledger_verified=entities.get("invoice_exception_documented", False),
+                area_manager_approval=entities.get("invoice_exception_documented", False),
+            ),
+            verbal_approval_not_sufficient(entities.get("verbal_approval", False)),
+        ])
+    elif intake["intent"] == "claim_status":
+        claim_rows = (facts.get("claim") or {}).get("records", [])
+        if claim_rows:
+            claim = claim_rows[0]
+            outcomes.append(credit_note_sla(
+                claim.get("receipt_date"),
+                None,
+                claim.get("credit_note_no"),
+            ))
+
+    events = [_trace(
+        state,
+        "rules_applied",
+        rule_count=len(outcomes),
+        passed=sum(outcome["passed"] is True for outcome in outcomes),
+        failed=sum(outcome["passed"] is False for outcome in outcomes),
+        unevaluable=sum(outcome["passed"] is None for outcome in outcomes),
+    )]
+    return {"rule_outcomes": outcomes, "debug_trace": events}
+
+
+def compose_claim_answer(state: State) -> dict:
+    """Ask the model to explain already-gathered facts and rule results, with no tools available."""
+    rule_context = SystemMessage(
+        "Write a concise answer for this claim request. Use only the verified tool facts and rule results below. "
+        "Never claim approval. Explain failed or unevaluable checks and ask for missing evidence. "
+        f"Verified tool facts: {json.dumps(state.get('facts', {}), default=str)}. "
+        f"Deterministic rule outcomes: {json.dumps(state.get('rule_outcomes', []), default=str)}"
+    )
+    reply = get_llm().invoke([rule_context, *state["messages"]])
+    event = _trace(state, "answer_composed", model_turn=state.get("trips", 0) + 1)
+    return {"messages": [reply], "trips": state.get("trips", 0) + 1, "debug_trace": [event]}
 
 
 def call_model(state: State) -> dict:
@@ -147,12 +275,23 @@ def route(state: State) -> str:
 builder = StateGraph(State)
 # Register the Python functions as named graph nodes.
 builder.add_node("validate_input", validate_input)
+builder.add_node("gather_facts", gather_claim_facts)
+builder.add_node("apply_rules", apply_claim_rules)
+builder.add_node("compose_answer", compose_claim_answer)
 builder.add_node("model", call_model)
 builder.add_node("tools", run_tools)
 # Every user question starts with deterministic intake validation.
 builder.add_edge(START, "validate_input")
 # Missing claim fields produce a direct response; complete requests go to the model.
-builder.add_conditional_edges("validate_input", route_intake, {"model": "model", END: END})
+builder.add_conditional_edges(
+    "validate_input",
+    route_intake,
+    {"gather_facts": "gather_facts", "model": "model", END: END},
+)
+# Claim requests gather facts, run deterministic Python rules, then compose the response.
+builder.add_edge("gather_facts", "apply_rules")
+builder.add_edge("apply_rules", "compose_answer")
+builder.add_edge("compose_answer", END)
 # After a model turn, choose tools or END using the route function.
 builder.add_conditional_edges("model", route, {"tools": "tools", END: END})
 # After tools return evidence, ask the model again to interpret it or request more.
@@ -163,13 +302,22 @@ graph = builder.compile()
 
 def run_question(question: str) -> dict:
     # Start a fresh conversation containing only this user's question.
-    final = graph.invoke({"messages": [HumanMessage(question)], "trips": 0, "intake": {}, "debug_trace": []})
+    final = graph.invoke({
+        "messages": [HumanMessage(question)],
+        "trips": 0,
+        "intake": {},
+        "debug_trace": [],
+        "facts": {},
+        "evidence": [],
+        "rule_outcomes": [],
+    })
     # Extract tool messages as evidence for the API response.
-    evidence = [m.content for m in final["messages"] if isinstance(m, ToolMessage)]
+    evidence = [*final["evidence"], *(m.content for m in final["messages"] if isinstance(m, ToolMessage))]
     # Return the final model answer, tool evidence, and number of model turns.
     return {
         "answer": final["messages"][-1].content,
         "evidence": evidence,
         "model_calls": final["trips"],
         "debug_trace": final["debug_trace"],
+        "rule_outcomes": final["rule_outcomes"],
     }
