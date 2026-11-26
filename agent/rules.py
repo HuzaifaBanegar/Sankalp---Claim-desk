@@ -9,12 +9,30 @@ from typing import Any
 
 def _parse_date(value: Any) -> date | None:
     """Parse supported ISO and day-month-year dates; return None if absent/invalid."""
+    if isinstance(value, datetime):
+        return value.date()
     if isinstance(value, date):
         return value
     if not isinstance(value, str) or not value.strip():
         return None
     raw = value.strip()
-    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d-%b-%Y", "%d/%m/%Y"):
+    #ISO format from pandas to json
+    if "T" in raw:
+        try:
+            return datetime.fromisoformat(raw).date()
+        except ValueError:
+            pass
+    # Full ISO, including date-only strings and timezone suffixes.
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).date()
+    except ValueError:
+        pass
+    # CSV date formats.
+    for fmt in (
+        "%Y-%m-%d", "%d-%m-%Y", "%d-%b-%Y", "%d/%m/%Y",
+        "%b-%y", "%b-%Y", "%B-%y", "%B-%Y", "%b %y", "%b %Y",
+        "%B %y", "%B %Y",
+    ):
         try:
             return datetime.strptime(raw, fmt).date()
         except ValueError:

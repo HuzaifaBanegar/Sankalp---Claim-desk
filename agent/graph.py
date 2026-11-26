@@ -4,6 +4,7 @@ This is a skeleton to prove your deployment works end to end. Replace it with yo
 own design. Keep the rules in code and give the model only the judgment calls.
 """
 # Annotated lets us attach a reducer to a state field; TypedDict describes the state keys.
+from datetime import date
 import json
 from operator import add
 from typing import Annotated, TypedDict
@@ -181,8 +182,8 @@ def apply_claim_rules(state: State) -> dict:
         if claim_rows:
             claim = claim_rows[0]
             outcomes.append(credit_note_sla(
-                claim.get("receipt_date"),
-                None,
+                claim.get("claim_date"),
+                date.today().isoformat(),
                 claim.get("credit_note_no"),
             ))
 

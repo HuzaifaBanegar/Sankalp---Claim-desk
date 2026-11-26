@@ -1,0 +1,8 @@
+A fresh candidate in the current CSV data is:
+- Stockist: STK0128 — City Medicos, Vijayawada
+- Claim type: Expired stock
+- Batch: L2430266
+- Quantity: 2 bottles
+- Invoice: INV/S02/2503/033645
+- Claim date: 2026-11-21
+- Expiry date: 2026-10-31

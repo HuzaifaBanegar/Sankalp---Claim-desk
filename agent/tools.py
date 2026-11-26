@@ -10,6 +10,12 @@ from langchain_core.tools import tool
 
 from agent.data import load_all
 
+from agent.normalize import (
+    normalize_batch_no,
+    normalize_claim_no,
+    normalize_invoice_ref,
+    normalize_stockist_code)
+
 
 @lru_cache(maxsize=1)
 def _batches() -> dict:
@@ -22,13 +28,13 @@ def _batches() -> dict:
         for field in ("mfg_date", "expiry_date"):
             if hasattr(row[field], "strftime"):
                 row[field] = row[field].strftime("%d-%m-%Y")
-        out[row["batch_no"]] = {**skus.get(code, {}), **row, "sku_code": code}
+        out[normalize_batch_no(row["batch_no"])] = {**skus.get(code, {}), **row, "sku_code": code}
     return out
 
 
 def batch_record(batch_no: str) -> dict:
     """Plain function: easy to test without a model."""
-    row = _batches().get(batch_no.strip().upper())
+    row = _batches().get(normalize_batch_no(batch_no))
     if row is None:
         return {"found": False, "batch_no": batch_no, "reason": "No such batch in the batch master"}
     return {"found": True, **row}
@@ -50,11 +56,11 @@ def claim_records(
     rows = _claims()
     query: dict[str, str] = {}
     if claim_no:
-        query["claim_no"] = claim_no.strip().upper().replace(" ", "-")
+        query["claim_no"] = normalize_claim_no(claim_no)
     if batch_no:
-        query["batch_no"] = batch_no.strip().upper()
+        query["batch_no"] = normalize_batch_no(batch_no)
     if stockist_code:
-        query["stockist_code"] = stockist_code.strip().upper()
+        query["stockist_code"] = normalize_stockist_code(stockist_code)
     rows = [row for row in rows if all(str(row.get(key, "")).strip().upper() == value for key, value in query.items())]
     return {"found": bool(rows), **query, "records": rows}
 
@@ -68,14 +74,14 @@ def _sales() -> list[dict]:
 
 def primary_sale_records(invoice_ref: str, batch_no: str, stockist_code: str) -> dict:
     """Match invoice, batch, and stockist against cleaned primary-sales rows."""
-    invoice = invoice_ref.strip().upper()
-    batch = batch_no.strip().upper()
-    stockist = stockist_code.strip().upper()
+    invoice = normalize_invoice_ref(invoice_ref)
+    batch = normalize_batch_no(batch_no)
+    stockist = normalize_stockist_code(stockist_code)
     rows = [
         row for row in _sales()
-        if row["invoice_no"].strip().upper() == invoice
-        and str(row.get("batch_no") or "").strip().upper() == batch
-        and row["stockist_code"].strip().upper() == stockist
+        if row["invoice_no"] == invoice
+        and str(row.get("batch_no") or "") == batch
+        and row["stockist_code"] == stockist
     ]
     return {"found": bool(rows), "invoice_ref": invoice, "batch_no": batch, "stockist_code": stockist, "records": rows}
 
